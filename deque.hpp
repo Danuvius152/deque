@@ -11,7 +11,7 @@ template <class T>
 class deque {
    private:
     int BLOCK_SIZE = 160;
-    int THRESHOLD = 128;
+    int THRESHOLD = 144;
     class Element {
        public:
         T *value;
@@ -23,12 +23,16 @@ class deque {
             : preele(_pre), nextele(_next) {
             value = new T(_value);
         }
-        Element(const Element &other) { value = new T(*(other.value)); }
+        Element(const Element &other) {
+            value = new T(*(other.value));
+            preele = other.preele;
+            nextele = other.nextele;
+        }
 
         ~Element() {
             if (value != nullptr) delete value;
-            Element *preele = nullptr;
-            Element *nextele = nullptr;
+            preele = nullptr;
+            nextele = nullptr;
         }
     };
     class Block {
@@ -62,7 +66,7 @@ class deque {
             }
         }
 
-        Block *splitBlock(int x) {
+        Block *splitBlock(int x) {  // x为newBlock的头
             Block *newBlock =
                 new Block(elementNum - x, this, nextB, nullptr, nullptr);
             elementNum = x;
@@ -74,11 +78,11 @@ class deque {
             eleTail = tmp->preele;
             newBlock->eleHead->preele = nullptr;
             eleTail->nextele = nullptr;
-            return newBlock;  // x为newBlock的头
+            return newBlock;
         }
 
-        void mergeBlock() {
-            // if (nextB == nullptr) return;
+        void mergeBlock() {  //把后合并到前
+            if (nextB == nullptr) return;
             if (elementNum == 0) {
                 eleHead = nextB->eleHead;
                 eleTail = nextB->eleTail;
@@ -94,7 +98,7 @@ class deque {
             if (nextB->nextB != nullptr) nextB->nextB->preB = this;
             Block *tmp = nextB;
             nextB = nextB->nextB;
-            delete tmp;
+            delete tmp;//???
         }
         Element *findElement(int index) {
             Element *temp = eleHead;
@@ -145,7 +149,7 @@ class deque {
                     eleHead = eleHead->nextele;
                     eleHead->preele = nullptr;
                     delete tmp;
-                } else if (index >= elementNum - 1) {
+                } else if (index >= elementNum - 1) {//index 0-base
                     Element *tmp = eleTail;
                     eleTail = eleTail->preele;
                     eleTail->nextele = nullptr;
@@ -171,7 +175,7 @@ class deque {
                     dq->blockNum--;
                 }
             } else if (nextB != nullptr &&
-                       elementNum + nextB->elementNum < merge_size) {
+                       elementNum + nextB->elementNum <= merge_size) {
                 if (this == dq->blockTail->preB) dq->blockTail = this;
                 mergeBlock();
                 dq->blockNum--;
@@ -194,7 +198,7 @@ class deque {
         blockHead = new Block(0, nullptr, nullptr, nullptr, nullptr);
         blockTail = blockHead;
         blockNum = 1, len = 0;
-        BLOCK_SIZE = 160, THRESHOLD = 128;
+        BLOCK_SIZE = 160, THRESHOLD = 144;
     }
     Block *findBlock(const int pos,
                      int &index) const {  //返回的index是当前Block的
@@ -215,7 +219,7 @@ class deque {
         index = cnt;
         return cur;
     }
-    void pushbackBlock(Block *t) {
+    void pushbackBlock(Block *t) {//构造deque使用
         if (blockTail != nullptr) {
             blockTail->nextB = new Block(*t);
             blockTail->nextB->preB = blockTail;
@@ -528,12 +532,11 @@ class deque {
      * returns an iterator pointing to the inserted value
      */
     iterator insert(iterator pos, const T &value) {
-        adjustSize();
-        if (blockNum == 0) initialize();
         int t = pos.total;
         if (t < 0 || t > len || pos.ptr != this) throw invalid_iterator();
+        adjustSize();
         if (t == len) {
-            push_back(value);
+            push_back(value);//此时len=len+1
             return iterator(this, blockTail, blockTail->eleTail, len - 1);
         }
         int index;
@@ -550,11 +553,10 @@ class deque {
      * points to a wrong place.
      */
     iterator erase(iterator pos) {
-        adjustSize();
-        int t = pos.total;
-        if (blockNum == 0) initialize();
         if (len == 0) throw container_is_empty();
+        int t = pos.total;
         if (t < 0 || t >= len || pos.ptr != this) throw invalid_iterator();
+        adjustSize();
         int index;
         Block *cur = findBlock(t, index);
         cur->eraseElement(this, index, THRESHOLD);
@@ -565,29 +567,24 @@ class deque {
     }
     void push_back(const T &value) {
         adjustSize();
-        if (blockNum == 0) initialize();
         blockTail->insertElement(this, blockTail->elementNum,
                                  new Element(value), BLOCK_SIZE);
     }
     void pop_back() {
-        adjustSize();
-        if (blockNum == 0) initialize();
         if (len == 0) throw container_is_empty();
+        adjustSize();
         blockTail->eraseElement(this, blockTail->elementNum, THRESHOLD);
     }
     void push_front(const T &value) {
         adjustSize();
-        if (blockNum == 0) initialize();
         blockHead->insertElement(this, 0, new Element(value), BLOCK_SIZE);
     }
     void pop_front() {
         adjustSize();
-        if (blockNum == 0) initialize();
         blockHead->eraseElement(this, 0, THRESHOLD);
     }
 };
 
 }  // namespace sjtu
-
 
 #endif
